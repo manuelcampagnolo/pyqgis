@@ -1,0 +1,89 @@
+# https://docs.qgis.org/3.16/en/docs/user_manual/processing/console.html
+import os
+import processing
+from urllib.parse import urljoin #path2uri
+import urllib.request
+
+
+FOLDER_IN='C:\\Users\\Manuel\\Documents\\geomatica\\CascaisIn'
+FOLDER_OUT='C:\\Users\\Manuel\\Documents\\geomatica\\CascaisOut'
+FOLDER_UP='C:\\Users\\Manuel\\Documents\\geomatica'
+
+# file names
+FN_DECLIVES = 'DecliveClasses.gpkg'
+FN_SOLOS = 'CartaSolos.gpkg'
+FN_USO = 'UsoSolo.gpkg'
+FN_RV = 'RedeViaria.gpkg'
+FN_LA = 'LAgua.gpkg'
+
+#table names
+TN_PRODS = 'ProdS.csv' # delimiter ;
+TN_PROTRV = 'ProtRV.csv' # delimiter ,
+
+# auxiliary functions
+# sep is the csv separator, e.g. sep=','  or sep=';'
+# this is necessary to read files with "file://...."
+def path2uri(folder,file,sep):
+    url_=urllib.request.pathname2url(os.path.join(folder,file))
+    params="?encoding=System&type=csv&delimiter="+sep+"&maxFields=10000&detectTypes=yes&geomType=none&subsetIndex=no&watchFile=no"
+    uri_=urljoin('file:', url_)+params
+    return uri_
+    
+    
+# Create project 
+cascais = QgsProject.instance() # does not write to file
+cascais.write(os.path.join(FOLDER_UP,'cascais.qgs')) # write to file
+
+# clear layers
+for layer in layers:
+    cascais.removeMapLayer(layer)
+
+# Import vector layer
+# vlayer = QgsVectorLayer(data_source, layer_name, provider_name)
+# the layer's name is "Declives"
+'''
+declives_layer = QgsVectorLayer(os.path.join(FOLDER_IN,FN_DECLIVES), "Declives", "ogr")
+if not declives_layer.isValid():
+    print("Layer failed to load!")
+else:
+    cascais.addMapLayer(declives_layer)
+'''
+
+# or using iface (QgisInterface)
+# the layer label is "Declives iface"+filename
+declives_layer_iface = iface.addVectorLayer(os.path.join(FOLDER_IN,FN_DECLIVES),"", "ogr")
+declives_layer_iface = iface.addVectorLayer(os.path.join(FOLDER_IN,FN_SOLOS),"", "ogr")
+declives_layer_iface = iface.addVectorLayer(os.path.join(FOLDER_IN,FN_USO),"", "ogr")
+declives_layer_iface = iface.addVectorLayer(os.path.join(FOLDER_IN,FN_RV),"", "ogr")
+declives_layer_iface = iface.addVectorLayer(os.path.join(FOLDER_IN,FN_LA),"", "ogr")
+
+# remove layer from project
+# cascais.removeMapLayer(declives_layer_iface)
+
+# Import table
+# import manually and look at source at properties
+#uri = "file:///C:/Users/Manuel/Documents/geomatica/CascaisIn/ProdS.csv?encoding=System&type=csv&delimiter=;&maxFields=10000&detectTypes=yes&geomType=none&subsetIndex=no&watchFile=no"
+print(path2uri(FOLDER_IN,TN_PRODS,';'))
+#uri = urljoin('file:', urllib.request.pathname2url(os.path.join(FOLDER_IN,TN_PRODS)))+"?encoding=System&type=csv&delimiter=;&maxFields=10000&detectTypes=yes&geomType=none&subsetIndex=no&watchFile=no"
+uri=path2uri(FOLDER_IN,TN_PRODS,';')
+vlayer = QgsVectorLayer(uri, "ProdS", "delimitedtext")
+cascais.addMapLayer(vlayer)
+#uri = "file:////"+os.path.join(FOLDER_IN,TN_PROTRV)+"?encoding=System&type=csv&delimiter=,&maxFields=10000&detectTypes=yes&geomType=none&subsetIndex=no&watchFile=no"
+uri=path2uri(FOLDER_IN,TN_PROTRV,',')
+vlayer = QgsVectorLayer(uri, "ProdRV", "delimitedtext")
+cascais.addMapLayer(vlayer)
+
+# TOC
+layers = cascais.mapLayers()
+print(layers)
+
+# processing algorithms - help
+# processing.algorithmHelp("native:saveselectedfeatures")
+
+# usoAdeq
+processing.run("qgis:selectbyexpression", {'INPUT':'UsoSolo','EXPRESSION':' \"CODIGO\" IN ( \'M\' , \'Fm\' , \'A\' )','METHOD':0})
+processing.run("native:saveselectedfeatures", {'INPUT':'UsoSolo','OUTPUT':os.path.join(FOLDER_OUT,'usoAdeq.gpkg')})
+declives_layer_iface = iface.addVectorLayer(os.path.join(FOLDER_OUT,'usoAdeq.gpkg'),"", "ogr")
+
+# tipoAdeq
+
