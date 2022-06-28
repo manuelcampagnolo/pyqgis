@@ -4,42 +4,51 @@ import os # file management
 from osgeo import gdal, osr # raster input/output
 import numpy as np
 
-myfolder=r'C:\Users\mlc\Downloads'
-myscriptsfolder=r'C:\Users\mlc\Documents\PyQGIS\scripts'
-myfolder=r'C:\Users\mlc\OneDrive - Universidade de Lisboa\Documents\Aulas-Cursos\Curso_PyQGIS_2a_edicao\PyQGIS'
-myscriptsfolder=os.path.join(myfolder,'scripts')
-# load auxiliary functions
-exec(open(os.path.join(myscriptsfolder,'auxiliary_functions.py').encode('utf-8')).read())
+# my working folder
+myfolder=r'C:\Users\mlc\OneDrive - Universidade de Lisboa\Documents\profissional-isa-cv\agregacao\aula\dados\monchique_2018' # CHANGE
+# source auxiliary functions (instead of importing module)
+exec(open(os.path.join(myfolder,'auxiliary_functions.py').encode('utf-8')).read())
 
+#file:///C:/Users/mlc/OneDrive%20-%20Universidade%20de%20Lisboa/Documents/profissional-isa-cv/agregacao/aula/dados/monchique_2018/dem_aw3d_pt_25m.tif
 
 # my constants
-fn=os.path.join(myfolder,'wc2.1_30s_prec_12.tif')
-newfn=os.path.join(myfolder,      'cropped12.tif')
-newln='cropped01'
-fn=os.path.join(myfolder,'COSsim_2020M21_N3_v0_TM06_TNE.tif')
-newfn=os.path.join(myfolder,'UnidTerrit.tif')
-newln='UnidTerrit'
-fn=os.path.join(myfolder,'input','mde.tif')
-newfn=os.path.join(myfolder,'temp','dem_cascais.tif')
-newln='DEM'
+#fn=os.path.join(myfolder,'wc2.1_30s_prec_12.tif')
+#newfn=os.path.join(myfolder,      'cropped12.tif')
+#newln='cropped01'
+#fn=os.path.join(myfolder,'COSsim_2020M21_N3_v0_TM06_TNE.tif')
+#newfn=os.path.join(myfolder,'UnidTerrit.tif')
+#newln='UnidTerrit'
+
 # project and data set CRS
-my_crs=QgsCoordinateReferenceSystem(3763)
+epsg_out='4326'# -> not implemented
+# file names
+fn=os.path.join(myfolder,'dem_aw3d_pt_25m.tif') #input file
+newfn=os.path.join(myfolder,'mde_crop.tif') # cropped file
+newln='mde_crop'
+newfn_reproj=os.path.join(myfolder,'mde_crop'+epsg_out+'.tif') # output reprojected file - > not implemented
+
 # crop to, in fn coordinates
 (myxMin,myxMax,myyMin,myyMax) = (-10,-5,36,43)
 (myxMin,myyMin,myxMax,myyMax) = (-46726,35894,-34456,49506)
 (myxMin,myyMin,myxMax,myyMax) = (-120000,-110000,-100000,-98000)
+(myxMin,myyMin,myxMax,myyMax) = (-48000,-275000,-17000,-249000)
 
 ##################################################### project; add layers
 # Create project
 myproject,mycanvas= my_clean_project()
 
-# set project CRS
-myproject.setCrs(my_crs)
-
+# read input raster
 rlayer=my_add_raster_layer(fn,'01')
 
-###################################################### gdal & numpy
+# determine CRS of input raster
+EPSGcode=int(rlayer.crs().authid()[5:]) # from QgsRasterLayer object
 
+# set project CRS
+my_crs=QgsCoordinateReferenceSystem(EPSGcode)
+myproject.setCrs(my_crs)
+
+
+###################################################### gdal & numpy
 # access file
 gdal_layer = gdal.Open(fn, gdal.GA_ReadOnly) 
 
@@ -63,14 +72,9 @@ if not np.isnan(nodatavalue):
 ## Check again array statistics
 #rasterArray.min()
 
-
 # determine raster size
 W=rlayer.width() # from QgsRasterLayer object
 H=rlayer.height() # from QgsRasterLayer object
-# determine CRS
-EPSGcode=int(rlayer.crs().authid()[5:]) # from QgsRasterLayer object
-
-#if not EPSGcode==4326: stop # below use lat/long to crop
 
 ############################### process data with numpy and write results to new raster
 # (1) convert data to numpy array and process
@@ -130,4 +134,3 @@ my_rlayer=iface.addRasterLayer(newfn,newln)
 
 # what is the no data value for the new raster
 my_rlayer.dataProvider().sourceNoDataValue(1)
-
