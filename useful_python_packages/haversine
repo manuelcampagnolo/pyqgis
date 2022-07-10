@@ -1,3 +1,0 @@
-from haversine import haversine, Unit, inverse_haversine, Direction
-
-# determine lat/long from a point, in a certain direction, for a certain distance in km 
