@@ -1,3 +1,17 @@
+##################################################################################### dissolve with fixed distance
+dict_params={'DISSOLVE' : True, 'DISTANCE' : dist_buf}
+mylayer=my_processing_run("native:buffer",ln_isocronas,dict_params,ln_isocronas_buf)
+my_remove_layer(ln_isocronas)
+
+##################################################################################### dissolve with attribute distance
+property_distance=QgsProperty.fromExpression('"Distance"')
+# Create buffer around Roads
+dict_params={'DISTANCE':property_distance,'DISSOLVE':True}
+mylayer=my_processing_run("native:buffer",'roads_Join',dict_params,'roadsBuffer')
+my_remove_layer('roads_Join')
+#####################################################################################
+
+# auxiliary functions
 ###################### my_processing_run
 # operation: string that defines the operation to apply from Processing Toolbox
 # ln_input: string: layer name of the input layer
@@ -56,7 +70,3 @@ def my_clean_project():
     mycanvas.refreshAllLayers()
     return myproject,mycanvas
 
-##################################################################################### dissolve with fixed distance
-dict_params={'DISSOLVE' : True, 'DISTANCE' : dist_buf}
-mylayer=my_processing_run("native:buffer",ln_isocronas,dict_params,ln_isocronas_buf)
-my_remove_layer(ln_isocronas)
