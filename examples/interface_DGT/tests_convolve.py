@@ -108,6 +108,11 @@ if not os.path.exists(fout):
 # add cropped layer
 my_add_raster_layer(fout,'COSsim_cropped')
 
+# convert to array with rasterio
+with rasterio.open(fout) as src:
+    cossim = src.read(1)
+    mycrs=src.crs
+
 # agricultura
 agri=(cossim // 100 ==2).astype(int)
 # SAP
