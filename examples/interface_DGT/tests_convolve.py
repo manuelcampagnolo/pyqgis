@@ -135,6 +135,7 @@ for x in range(k):
             K[x,y]=0
 print(np.sum(K))
 
+
 Nref=81 # Bruno, kernel circular de diam 11
 pmin,pmax=40/Nref,81/Nref
 
@@ -142,31 +143,32 @@ pmin,pmax=40/Nref,81/Nref
 #subplot(r,c) provide the no. of rows and columns
 f, axarr = plt.subplots(2,2) 
 
-# plotrow, plotcol,k (kernel), iter=1 (#iterations of convolve), pmin, pmax
-mydict={0: (0,0,3,1,pmin,pmax), 1: (0,1,5,1,pmin,pmax), 2: (1,0,7,1,pmin,pmax), 3: (1,1,11,1,pmin,pmax)}
+# plotrow, plotcol,k (kernel), iter (#iterations of convolve), pmin, pmax
+mydict={0: (0,0,5,7,1,pmin,pmax), 1: (0,1,7,9,1,pmin,pmax), 2: (1,0,5,11,1,pmin,pmax), 3: (1,1,7,11,1,pmin,pmax)}
 #mydict={0: (0,0,1,0,pmin,pmax), 1: (0,1,11,1,0.4,0.6), 2: (1,0,11,1,0.3,0.7), 3: (1,1,11,1,0.2,0.8)}
 
+def combine_kernels(fagr,fsap,agri,sap):
+    Y=np.logical_and(fsap+fagr>pmin, fsap+fagr<=pmax)
+    Y=np.logical_and(Y,fagr>5./Nref)
+    Y=np.logical_and(Y, fagr<pmax)
+    Y=np.logical_and(Y,fsap>2./Nref)
+    Y=np.logical_and(Y,fsap<pmax)
+    Y=np.logical_and(Y,agri+sap>0).astype(int)
+    return Y
 
-for idx,(i,j,k,iter,pmin,pmax) in mydict.items():
+for idx,(i,j,k,k2,iter,pmin,pmax) in mydict.items():
     if k>1:
-          K=np.full((k,k),1)
-          rk=int((k-1)/2) # radius
-          # make kernel circular
-          for x in range(k):
-              for y in range(k):
-                  if (x-rk)**2+(y-rk)**2 > rk**2:
-                      K[x,y]=0
-          # apply convolution
-          fagr=convolve2D(agri,K,rk)/np.sum(K)
-          fsap=convolve2D(sap,K,rk)/np.sum(K)
-          # apply conditions (Bruno)
-          Y=np.logical_and(fsap+fagr>pmin, fsap+fagr<=pmax)
-          Y=np.logical_and(Y,fagr>5./Nref)
-          Y=np.logical_and(Y, fagr<pmax)
-          Y=np.logical_and(Y,fsap>2./Nref)
-          Y=np.logical_and(Y,fsap<pmax)
-          Y=np.logical_and(Y,agri+sap>0).astype(int)
-    axarr[i,j].imshow(Y,cmap='gray_r')
-    
+        K=create_circular_kernel(k)
+        rk=int((k-1)/2)
+        # apply convolution
+        fagr=convolve2D(agri,K,rk)/np.sum(K)
+        fsap=convolve2D(sap,K,rk)/np.sum(K)
+        # apply conditions (Bruno)
+        Y=combine_kernels(fagr,fsap,agri,sap)
+        K=create_circular_kernel(k2)
+        rk=int((k2-1)/2)
+        Y=convolve2D(Y,K,rk)/np.sum(K)
+        Y=(Y>0.5).astype(int)
+        axarr[i,j].imshow(Y,cmap='viridis')
 plt.show()
 
