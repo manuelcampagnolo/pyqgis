@@ -8,7 +8,7 @@ import numpy as np
 from qgis.PyQt.QtCore import QVariant # types for attributes in vector layers
 import re
 import shutil
-import pickle
+import pickle # load and dump variables
 
 turma=3
 grupo=5
