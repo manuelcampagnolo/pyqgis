@@ -1,4 +1,7 @@
-#resolucao_parte2_trabalho_geomatica_2021_2022.py
+# Manuel Campagnolo
+# ISA/ULisboa 2023
+# resolucao_trabalho_geomatica_sigdr_2022_2023
+# Projeto Cadastro v2
 
 import qgis # already loaded
 import processing # idem
