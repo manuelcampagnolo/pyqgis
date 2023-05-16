@@ -457,3 +457,6 @@ for feat in pcval.getFeatures():
 
 mydict=create_sturges_graduated_legend_dict(vals,'viridis',myopacity=0.9,minN=5,decimals=3,minVal=min(vals),units='(VAL)')
 create_graduated_legend(pcval,'VAL0_mean',mydict)
+
+############################################### output do grupo
+my_add_vector_layer(fn_valcadastro,'ValCadastro Grupo')
