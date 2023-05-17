@@ -1,7 +1,6 @@
-# Manuel Campagnolo
-# ISA/ULisboa 2023
-# resolucao_trabalho_geomatica_sigdr_2022_2023
-# Projeto Cadastro v2
+# Manuel Campagnolo, 2023
+# ISA/ULisboa
+# resolucao trabalho_geomatica_SIGDR_2022_2023.py
 
 import qgis # already loaded
 import processing # idem
@@ -30,8 +29,14 @@ projectsfolder=r'\\madpet\mlc\Temp' # para discussões
 if turma==0 and grupo==0:
     myfolder=os.path.join(projectsfolder,'Exemplo')
 
+if turma==2 and grupo==2:
+    myfolder=os.path.join(projectsfolder,'T2G2') #,'grupo2turma2parte2')
+
+if turma==2 and grupo==4:
+    myfolder=os.path.join(projectsfolder,'T2G4')
+
 if turma==3 and grupo==4:
-    myfolder=os.path.join(projectsfolder,'T3G4','grupo4turma3parte2')
+    myfolder=os.path.join(projectsfolder,'T3G4')
 
 ########################################################################
 parent=iface.mainWindow() # necessary for QMessageBox
@@ -41,7 +46,8 @@ my_crs=3763
 # Create project
 myproject,mycanvas= my_clean_project()
 # set project CRS
-myproject.setCrs(QgsCoordinateReferenceSystem(my_crs))
+qcrs=QgsCoordinateReferenceSystem(my_crs)
+myproject.setCrs(qcrs)
 
 # Ler cdg, atributos e valores para expressões
 # indiferente escrever minúsculas ou maiuscúlas pois a função find_files converte com .lower()
@@ -51,17 +57,17 @@ if 'my_params.txt' not in os.listdir(myfolder):
     L=[]
     Lp=[] # pickle
     # cadastro
-    fn_pc,an_ran,exp_ran=find_files(myfolder, r'^Cad.*(shp|gpkg)$',pick_attribute='atrib RAN') 
+    fn_pc,an_ran,exp_ran=find_files(myfolder, r'^(val|cad).*(shp|gpkg)$',pick_attribute='atrib RAN') 
     L=L+['fn_pc','an_ran','exp_ran']
     Lp=Lp+[fn_pc, an_ran,exp_ran]
     # ren 
-    fn_pc,an_ren,exp_ren=find_files(myfolder, r'^Cad.*(shp|gpkg)$',pick_attribute='atrib REN') 
+    fn_pc,an_ren,exp_ren=find_files(myfolder, r'^(val|cad).*(shp|gpkg)$',pick_attribute='atrib REN') 
     L=L+['an_ren','exp_ren']
     Lp=Lp+[an_ren,exp_ren]
     # valcadastro dos alunos para comparar
-    fn_valcadastro=find_files(myfolder, r'^val.*(shp|gpkg)$') 
-    L=L+['fn_valcadastro']
-    Lp=Lp+[fn_valcadastro]
+    fn_val_grupo, an_val_grupo, exp_val_grupo=find_files(myfolder, r'^val.*(shp|gpkg)$',pick_attribute='VAL grupo') 
+    L=L+['fn_val_grupo','an_val_grupo']
+    Lp=Lp+[fn_val_grupo,an_val_grupo]
     # marcos
     fn_marcos=find_files(myfolder, r'marc.*(shp|gpkg)$')
     L=L+['fn_marcos']
@@ -107,7 +113,7 @@ if 'my_params.txt' not in os.listdir(myfolder):
 else:
     #print(','.join(L))
     with open(os.path.join(myfolder,'my_params.txt'), 'rb') as f: 
-       fn_pc,an_ran,exp_ran,an_ren,exp_ren,fn_valcadastro, fn_marcos,fn_prop,fn_cpr,fn_rv,an_rv,exp_rv_pavimentadas,exp_rv_nao_pavimentadas,fn_la,fn_ca,fn_solos,fn_mde,fn_prec= pickle.load(f)
+       fn_pc,an_ran,exp_ran,an_ren,exp_ren,fn_val_grupo,an_val_grupo,fn_marcos,fn_prop,fn_cpr,fn_rv,an_rv,exp_rv_pavimentadas,exp_rv_nao_pavimentadas,fn_la,fn_ca,fn_solos,fn_mde,fn_prec= pickle.load(f)
 
 
 ## output file
@@ -125,6 +131,8 @@ an_solos='COD1_solos'
 # atributos de PC: será usado num iterador sobre features: não é preciso expressão
 #an_ren='ren'
 
+wrongCRS=[]
+
 ################################################### PARTE 1
 
 # A) lê ficheiro, verifica validade das features, tenta corrigir e devolve layer corrigida
@@ -132,7 +140,16 @@ pc=ckeck_and_fix_load_vlayer_validity(fn_pc,'PC')
 check_overlaps(pc)
 check_gaps_within_hull(pc)
 
+# condição para reprojetar cdg se necessário
+if pc.crs().authid()!='EPSG:'+str(my_crs):
+    wrongCRS=wrongCRS+[{'PC': pc.crs().authid()}]
+    # converter para mycrs
+    pc=my_processing_run("native:reprojectlayer",'PC',{'TARGET_CRS':qcrs},'PC')
+    #(QgsProject.instance().layerTreeRoot().findLayer(aux.id())).setName('marcos')
+
 # B) Verificar se os marcos estão sobre os limites das parcelas
+
+
 # a) extrair linhas de PC
 dict_params={}
 pc_lines=my_processing_run("native:polygonstolines",pc,dict_params,'pc_lines')
@@ -140,10 +157,20 @@ pc_diss=my_processing_run("native:dissolve",pc_lines,dict_params,'pc_diss')
 
 # b) verificar se todos os marcos intersectam com linhas
 marcos=my_add_vector_layer(fn_marcos,'marcos')
+
+# condição para reprojetar cdg se necessário
+if marcos.crs().authid()!='EPSG:'+str(my_crs):
+    wrongCRS=wrongCRS+[{'marcos': marcos.crs().authid()}]
+    # converter para mycrs
+    marcos=my_processing_run("native:reprojectlayer",'marcos',{'TARGET_CRS':qcrs},'marcos')
+    #(QgsProject.instance().layerTreeRoot().findLayer(aux.id())).setName('marcos')
+
+# determinar marcos fora das estremas
 ids=[]
 for featpcline in pc_diss.getFeatures():
     for feat in marcos.getFeatures():
-        if not feat.geometry().intersects(featpcline.geometry()):
+        # para dar 1 cm d etolerância
+        if not feat.geometry().buffer(0.01, -1).intersects(featpcline.geometry()):
             ids.append(feat.id())
 
 marcos.select(ids)
@@ -173,8 +200,17 @@ mycanvas.refreshAllLayers()
 # obter mde10m e prec10m
 # resample fn_new to fn_out using fn_ref as the new grid
 
-layer = QgsVectorLayer(fn_rv, "Vector Layer", "ogr")
-layer_extent = layer.dataProvider().extent()    
+# extensão de RV
+
+RV=my_add_vector_layer(fn_rv,'RV')
+
+# condição para reprojetar cdg se necessário
+if RV.crs().authid()!='EPSG:'+str(my_crs):
+    wrongCRS=wrongCRS+[{'RV': RV.crs().authid()}]
+    # converter para mycrs
+    RV=my_processing_run("native:reprojectlayer",'RV',{'TARGET_CRS':qcrs},'RV')
+
+layer_extent = RV.dataProvider().extent()    
 # Extract the extent values
 xmin = layer_extent.xMinimum()
 ymin = layer_extent.yMinimum()
@@ -203,8 +239,6 @@ pc=ckeck_and_fix_load_vlayer_validity(fn_pc,'PC')
 #pc=my_add_vector_layer(fn_pc,'PC')
 
 ###################################################################################
-
-my_add_vector_layer(fn_rv,'RV')
 
 # copy PC to PCVAL
 pc.selectAll()
@@ -265,6 +299,17 @@ mycanvas.refresh()
 ca=my_add_vector_layer(fn_ca,'CA')
 la=my_add_vector_layer(fn_la,'LA')
 
+# condição para reprojetar cdg se necessário
+if ca.crs().authid()!='EPSG:'+str(my_crs):
+    wrongCRS=wrongCRS+[{'CA': ca.crs().authid()}]
+    # converter para mycrs
+    ca=my_processing_run("native:reprojectlayer",'CA',{'TARGET_CRS':qcrs},'CA')
+
+if la.crs().authid()!='EPSG:'+str(my_crs):
+    wrongCRS=wrongCRS+[{'LA': la.crs().authid()}]
+    # converter para mycrs
+    la=my_processing_run("native:reprojectlayer",'LA',{'TARGET_CRS':qcrs},'LA')
+
 pcval.dataProvider().addAttributes([QgsField('REG0', QVariant.Double)])
 pcval.updateFields()
 # fill new field  with constant: cycle over features
@@ -286,7 +331,6 @@ if res==QMessageBox.No: stop
 
 my_remove_layer('LA')
 my_remove_layer('CA')
-
 
 
 ######################################################################### CON
@@ -337,6 +381,13 @@ my_processing_run("gdal:rasterize",'pcval',mydict,'ran')
 # B) determinar atributo Q de pcval
 
 solos=my_add_vector_layer(fn_solos,'solos')
+
+# reprojetar se necessário
+if solos.crs().authid()!='EPSG:'+str(my_crs):
+    wrongCRS=wrongCRS+[{'solos': solos.crs().authid()}]
+    # converter para mycrs
+    solos=my_processing_run("native:reprojectlayer",'solos',{'TARGET_CRS':qcrs},'solos')
+
 # select by location
 mydict={'PREDICATE':[0],
 'INTERSECT':'pcval'}
@@ -352,7 +403,6 @@ for field in attribute_fields:
 
 if 'Q' not in L: 
     solos_.dataProvider().addAttributes([QgsField('Q', QVariant.Double)])
-
 
 with edit(solos_):
     for feat in solos_.getFeatures():
@@ -380,8 +430,6 @@ mydict={'FIELD':'Q',
 'INIT':0}
 my_processing_run("gdal:rasterize",'solos_',mydict,'Q')
 
-my_remove_layer('solos_')
-
 # process Q and ran
 dict_params={'INPUT_A': 'ran','BAND_A':1, 'INPUT_B': 'Q','BAND_B':1,'FORMULA':'(A==1)*1+(A!=1)*B','NO_DATA':None,'RTYPE':5}
 valsolo=my_processing_run("gdal:rastercalculator",'',dict_params,'valsolo')
@@ -389,6 +437,7 @@ valsolo=my_processing_run("gdal:rastercalculator",'',dict_params,'valsolo')
 res=QMessageBox.question(parent,'VALsolos', 'Continuar?' )
 if res==QMessageBox.No: stop
 
+my_remove_layer('solos_')
 my_remove_layer('ran')
 my_remove_layer('Q')
 
@@ -432,31 +481,41 @@ dict_params={'FIELD_NAME':'CV0','FIELD_TYPE':0,'FORMULA': exp_cv,'FIELD_LENGTH':
 pcval=my_processing_run("native:fieldcalculator",pcval_,dict_params,'valcadastro')
 my_remove_layer('pcval_')
 
-# Etiquetas para "CV"
-layer_settings  = QgsPalLayerSettings()
-layer_settings.fieldName = "CV0"
-layer_settings.placement = 0
-text_format = QgsTextFormat()
-text_format.setFont(QFont("Arial", 12))
-text_format.setSize(12)
-buffer_settings = QgsTextBufferSettings()
-buffer_settings.setEnabled(True)
-buffer_settings.setSize(1)
-buffer_settings.setColor(QColor("white"))
-text_format.setBuffer(buffer_settings)
-layer_settings.setFormat(text_format)
-my_layer_settings = QgsVectorLayerSimpleLabeling(layer_settings)
-pcval.setLabelsEnabled(True)
-pcval.setLabeling(my_layer_settings)
-pcval.triggerRepaint()
+################################################  etiquetas e legenda
+def add_labels_and_legend(mylayer,myatt,mylabel):
+    # Etiquetas para "CV"
+    layer_settings  = QgsPalLayerSettings()
+    layer_settings.fieldName = mylabel
+    layer_settings.placement = 0
+    text_format = QgsTextFormat()
+    text_format.setFont(QFont("Arial", 12))
+    text_format.setSize(12)
+    buffer_settings = QgsTextBufferSettings()
+    buffer_settings.setEnabled(True)
+    buffer_settings.setSize(1)
+    buffer_settings.setColor(QColor("white"))
+    text_format.setBuffer(buffer_settings)
+    layer_settings.setFormat(text_format)
+    my_layer_settings = QgsVectorLayerSimpleLabeling(layer_settings)
+    #
+    mylayer.setLabelsEnabled(True)
+    mylayer.setLabeling(my_layer_settings)
+    mylayer.triggerRepaint()
+    # legenda
+    vals=[]
+    for feat in mylayer.getFeatures():
+        vals.append(feat[myatt])
+    mydict=create_sturges_graduated_legend_dict(vals,'viridis',myopacity=0.9,minN=5,decimals=3,minVal=min(vals),units='(VAL)')
+    create_graduated_legend(mylayer,myatt,mydict)
 
-# legenda
-vals=[]
-for feat in pcval.getFeatures():
-    vals.append(feat['VAL0_mean'])
+add_labels_and_legend(pcval,'VAL0_mean',"CV0")
 
-mydict=create_sturges_graduated_legend_dict(vals,'viridis',myopacity=0.9,minN=5,decimals=3,minVal=min(vals),units='(VAL)')
-create_graduated_legend(pcval,'VAL0_mean',mydict)
 
 ############################################### output do grupo
-my_add_vector_layer(fn_valcadastro,'ValCadastro Grupo')
+pc_grupo=my_add_vector_layer(fn_val_grupo,'ValCadastro Grupo')
+
+add_labels_and_legend(pc_grupo,an_val_grupo,"CV")
+
+###############################################
+print(wrongCRS)
+print(Lp)
