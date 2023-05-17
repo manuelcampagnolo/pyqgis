@@ -1,31 +1,5 @@
-##############################  rasterize
-
-
-def rasterize_vector_layer(input_layer, output_path, output_width, output_height):
-    # Define the output raster layer properties
-    output_extent = input_layer.extent()
-    output_crs = input_layer.crs()
-    # Create a new raster layer
-    output_layer = QgsRasterLayer('Polygon?crs=' + output_crs.toWkt(), 'output', 'memory')
-    output_layer.setExtent(output_extent)
-    output_layer.setDrawingStyle('SingleBandPseudoColor')
-    # Prepare the rasterization task
-    task = QgsRasterizeTask()
-    task.setSourceLayer(input_layer)
-    task.setTargetLayer(output_layer)
-    task.setWidth(output_width)
-    task.setHeight(output_height)
-    task.setExtent(output_extent)
-    task.setCrs(output_crs)
-    # Execute the task
-    QgsApplication.processingRegistry().addTask(task)
-    task.run()
-    # Save the raster layer to a file
-    QgsProject.instance().addMapLayer(output_layer)
-    output_layer.dataProvider().createRaster(output_path, output_width, output_height, 1, output_layer.dataProvider().dataType())
-
-
-
+# Manuel Campagnolo, 2023
+# ISA/ULisboa
 
 ############################ Categorized legend
 # input: 
@@ -266,6 +240,18 @@ def my_add_raster_layer(fn,ln):
 def my_remove_layer(ln):
     to_be_deleted = myproject.mapLayersByName(ln)[0]
     myproject.removeMapLayer(to_be_deleted.id())
+    
+# remove all layers with a given name
+def my_remove_layer(ln):
+    # Specify the name of the layers you want to remove
+    layer_name = ln
+    # Iterate over the layers and remove layers with the specified name
+    layers_to_remove = []
+    for layer in QgsProject.instance().mapLayers().values():
+        if layer.name() == layer_name:
+            layers_to_remove.append(layer)
+    for layer in layers_to_remove:
+        QgsProject.instance().removeMapLayer(layer.id())
 
 # It supposes there is a myproject variable
 # clear layer tree and canvas
@@ -675,7 +661,7 @@ def find_files(myfolder, stregex,pick_attribute=''):
     if sum(logical)==0:
         res=QMessageBox.question(parent,'File not found', 'Continuar?' )
         if res==QMessageBox.No: stop
-        return None
+        return 'EM_FALTA'
     isqml=[re.compile(r'.*qml$').search(f.lower()) is not None for f in myfiles]
     myfn=[myfilesfull[i] for i in range(len(myfiles)) if logical[i]]
     myln=[myfiles[i] for i in range(len(myfiles)) if logical[i]]
