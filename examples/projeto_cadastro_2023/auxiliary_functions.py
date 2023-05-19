@@ -634,7 +634,7 @@ def ckeck_and_fix_load_vlayer_validity(fn,ln):
                     new_not_valid_ids.append(feat.id())
         if len(new_not_valid_ids)>0:
             QMessageBox.information(parent,'Info','There are still {} not valid features'.format(len(not_valid_ids)))
-            stop
+            #stop
     mylayer.removeSelection()
     return mylayer
 
@@ -746,5 +746,4 @@ def find_files(myfolder, stregex,pick_attribute=''):
                     return myfnfull,atname, '"'+atname+'"='+val
             else:
                 return myfnfull
-
 
