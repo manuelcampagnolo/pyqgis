@@ -35,6 +35,9 @@ if turma==2 and grupo==2:
 if turma==2 and grupo==4:
     myfolder=os.path.join(projectsfolder,'T2G4')
 
+if turma==3 and grupo==3:
+    myfolder=os.path.join(projectsfolder,'T3G3')
+
 if turma==3 and grupo==4:
     myfolder=os.path.join(projectsfolder,'T3G4')
 
