@@ -1,3 +1,5 @@
+# Manuel Campagnolo, 2023
+# ISA/ULisboa
 
 ############################ Categorized legend
 # input: 
@@ -64,7 +66,7 @@ def create_graduated_legend_dict(values,colormap,myopacity):
     # color using colormap defined in the header of the script
     #mycolormap=matplotlib.cm.get_cmap(colormap,N) 
     mycolormap=get_cmap(colormap,N) 
-    #mycolors=mycolormap.colors*255 # numpy.ndarray
+    mycolors=mycolormap.colors*255 # numpy.ndarray
     for i in range(mymindigits,mymaxdigits+1):
         # determine class minimum and maximum value
         if i==mymindigits: 
@@ -77,52 +79,24 @@ def create_graduated_legend_dict(values,colormap,myopacity):
         classMaxKm2=int(classMax/10**6)
         mylabel = 'from {} to {} km2'.format(classMinKm2,classMaxKm2)
         # choose count-th color from mycolors
-        #mycolor=mycolors[count]
+        mycolor=mycolors[count]
+        count +=1
         # create QColor object
-        mycolor=mycolormap(count)
         myQColor=QColor(mycolor[0],mycolor[1],mycolor[2]) #RGB
         # insert a new entry to the dictionary
         myDict.update({mylabel : (classMin,classMax,myQColor,myopacity)})
-        count +=1
     return myDict
 
-# junho 2022
-def create_unary_graduated_legend_dict(values,colormap,myopacity,decimals):
+def create_sturges_graduated_legend_dict(values,colormap,myopacity,minN=4,decimals=0,minVal=0,units=''):
     from matplotlib.cm import get_cmap
     import numpy as np
-    mymin=int(np.floor(min(values)))
-    mymax=int(np.ceil(max(values)))
-    # Creates dictionary for the graduated legend
-    myDict={} # initialize
-    count=0
-    # number of classes
-    N=int(mymax+1-mymin)*10**decimals
-    # color using colormap defined in the header of the script
-    #mycolormap=matplotlib.cm.get_cmap(colormap,N) 
-    mycolormap=get_cmap(colormap,N) 
-    #mycolors=mycolormap.colors*255 # numpy.ndarray
-    while count<N:
-        t=mymin+count*10**(-decimals)
-        mylabel = 'day {}'.format(t)
-        # create QColor object
-        mycolor=[255*x for x in mycolormap(count)]
-        myQColor=QColor(mycolor[0],mycolor[1],mycolor[2]) #RGB
-        # insert a new entry to the dictionary
-        myDict.update({mylabel : (t,t+10**(-decimals),myQColor,myopacity)})
-        count +=1
-    return myDict
-
-
-def create_sturges_graduated_legend_dict(values,colormap,myopacity,units):
-    from matplotlib.cm import get_cmap
-    import numpy as np
-    mymin=min(values)
+    #mymin=min(values)
     mymax=max(values)
     # Creates dictionary for the graduated legend
     myDict={} # initialize
     count=0
-    N = int(np.ceil(1+np.log2(len(values))))
-    breaks=np.linspace(0,mymax,num=N)
+    N = max(int(np.ceil(1+np.log2(len(values)))),minN)
+    breaks=np.linspace(minVal,mymax,num=N)
     # color using colormap defined in the header of the script
     #mycolormap=matplotlib.cm.get_cmap(colormap,N) 
     mycolormap=get_cmap(colormap,N) 
@@ -130,11 +104,11 @@ def create_sturges_graduated_legend_dict(values,colormap,myopacity,units):
     for i in range(1,len(breaks)):
         # determine class minimum and maximum value
         if i==1: 
-            classMin = 0
+            classMin = minVal
         else:
             classMin = classMax
         classMax = breaks[i]
-        mylabel = 'from {} to {} {}'.format(round(classMin),round(classMax),units)
+        mylabel = '{} -- {} {}'.format(round(classMin,decimals),round(classMax,decimals),units)
         # choose count-th color from mycolors
         mycolor=mycolors[count]
         count +=1
@@ -145,30 +119,21 @@ def create_sturges_graduated_legend_dict(values,colormap,myopacity,units):
     return myDict
 
 # creates graduated symbology from dictionary with structure as above
-# edited junho 2022
-def create_graduated_legend(vlayer,att_color,dict,tipo="Circle",att_size=NULL):
+def create_graduated_legend(vlayer,attrib,dict):
     myRangeList=[]
     count=0
     for mylabel, (classMin,classMax, myQColor, myopacity) in dict.items():
-        mySymbol = QgsSymbol.defaultSymbol(mylayer.geometryType())
-        if tipo=='Circle':
-            mySymbol.symbolLayer(0).setShape(QgsSimpleMarkerSymbolLayerBase.Circle)
-        if tipo=='Square':
-            mySymbol.symbolLayer(0).setShape(QgsSimpleMarkerSymbolLayerBase.Square)
-        if att_size!=NULL:
-            mySymbol.symbolLayer(0).setDataDefinedProperty(QgsSymbolLayer.PropertySize, QgsProperty.fromField(att_size) )
+        mySymbol = QgsSymbol.defaultSymbol(vlayer.geometryType())
         mySymbol.setColor(myQColor)
         mySymbol.setOpacity(myopacity)
         # new for graduated symbols:
         myRange = QgsRendererRange(classMin, classMax, mySymbol, mylabel)
         myRangeList.append(myRange)
     # define GraduatedSymbol renderer and pass it to mylayer
-    renderer = QgsGraduatedSymbolRenderer(att_color, myRangeList)
+    renderer = QgsGraduatedSymbolRenderer(attrib, myRangeList)
     vlayer.setRenderer(renderer)
     # Refresh layer
     vlayer.triggerRepaint()
-
-# layer6.renderer().symbol().symbolLayer(0).setShape(QgsSimpleMarkerSymbolLayerBase.Star)
 
 ############################################  raster legend
 # legend for raster 
@@ -248,7 +213,7 @@ def my_processing_run(operation,ln_input,dict_params,layer_name):
             mylayer=my_add_vector_layer(mylayer,layer_name)
     else:
         myproject.addMapLayer(mylayer)
-    mylayer.setName(layer_name)
+        mylayer.setName(layer_name)
     return mylayer
 
 ################################### add, name, remove layers
@@ -275,6 +240,18 @@ def my_add_raster_layer(fn,ln):
 def my_remove_layer(ln):
     to_be_deleted = myproject.mapLayersByName(ln)[0]
     myproject.removeMapLayer(to_be_deleted.id())
+    
+# remove all layers with a given name
+def my_remove_layer(ln):
+    # Specify the name of the layers you want to remove
+    layer_name = ln
+    # Iterate over the layers and remove layers with the specified name
+    layers_to_remove = []
+    for layer in QgsProject.instance().mapLayers().values():
+        if layer.name() == layer_name:
+            layers_to_remove.append(layer)
+    for layer in layers_to_remove:
+        QgsProject.instance().removeMapLayer(layer.id())
 
 # It supposes there is a myproject variable
 # clear layer tree and canvas
@@ -536,7 +513,7 @@ def create_array_from_raster_file_name(fn):
 
 # resample
 # from https://gis.stackexchange.com/questions/296770/aligning-many-rasters-using-pyqgis-or-python
-def resample_raster_fn_to_fnout_using_fnref(fn,fnref,fnout,nbands=1):
+def resample_raster_fn_to_fnout_using_fnref(fn,fnref,fnout,nbands=1,crit="nn"):
     inputfile = fn
     input = gdal.Open(inputfile, gdalconst.GA_ReadOnly)
     inputProj = input.GetProjection()
@@ -555,10 +532,112 @@ def resample_raster_fn_to_fnout_using_fnref(fn,fnref,fnout,nbands=1):
     output.SetGeoTransform(referenceTrans)
     output.SetProjection(referenceProj)
     # resample 
-    gdal.ReprojectImage(input, output, inputProj, referenceProj, gdalconst.GRA_NearestNeighbour) #gdalconst.GRA_Bilinear)
+    if crit=="lanczos":
+        gdal.ReprojectImage(input, output, inputProj, referenceProj, gdalconst.GRA_Lanczos) 
+    if crit=="nn":
+        gdal.ReprojectImage(input, output, inputProj, referenceProj, gdalconst.GRA_NearestNeighbour) 
+    if crit=="bilinear":
+        gdal.ReprojectImage(input, output, inputProj, referenceProj, gdalconst.GRA_Bilinear) 
     del output
 
-################### find files in folder (correção trabalho cadastro maio 2022)
+
+# gaps
+def check_gaps_within_hull(mylayer):
+    dict_params={}
+    diss=my_processing_run("native:dissolve",mylayer,dict_params,'diss')
+    # concave hull
+    dict_params={} #{'KNEIGHBORS':10,'FIELD':''}
+    hull=my_processing_run("native:convexhull",diss,dict_params,'hull')
+    # difference to find gaps
+    dict_params={'OVERLAY':'PC'}
+    dif=my_processing_run("native:difference",'hull',dict_params,'dif')
+    # buffer dif by 0.1 m, so dif's on the boundary can be discarded
+    dict_params={'DISTANCE':0.1,'DISSOLVE':False}
+    bufdif=my_processing_run("native:buffer",'dif',dict_params,'bufdif')
+    # select differences that are not along the border of 'hull'
+    ids=[]
+    areas=[]
+    for feathull in hull.getFeatures():
+        for feat in bufdif.getFeatures():
+            if feat.geometry().within(feathull.geometry()):
+                ids.append(feat.id())
+                areas.append(feat.geometry().area())
+    my_remove_layer('hull')
+    if len(ids)>0:
+        dif.select(ids)
+        # max area of features in dif
+        maxarea=max(areas)
+        res=QMessageBox.question(parent,'Maximum gap', str(round(maxarea,6))+' m2 . Continuar?' )
+        if res==QMessageBox.No: stop
+    else:
+        my_remove_layer('dif')
+        my_remove_layer('bufdif')
+
+
+# Verificar se há gaps e overlaps
+def check_overlaps(mylayer):
+    # Create empty layer in memory
+    newlayer = QgsVectorLayer("Polygon", "overlaps", "memory")
+    # Set a Coordinate Reference System
+    crs=mylayer.crs()
+    newlayer.setCrs(crs)
+    pr = newlayer.dataProvider()
+    pr.addAttributes([QgsField('area',QVariant.Double)])
+    newlayer.updateFields()
+    # check if there are overlaps
+    with edit(newlayer):
+        maxarea=0
+        for feat1 in mylayer.getFeatures():
+            for feat2 in mylayer.getFeatures():
+                if feat1.id() < feat2.id():
+                    overgeom=feat1.geometry().intersection(feat2.geometry())
+                    maxarea=max(maxarea,overgeom.area())
+                    #print(maxarea)
+                    feat=QgsFeature()
+                    feat.setGeometry(overgeom)
+                    pr.addFeature(feat)
+                    #feat['area']=overgeom.area()
+                    #res=newlayer.updateFeature(feat)
+    if maxarea>0:
+        newlayer.updateExtents() 
+        myproject.addMapLayer(newlayer)
+        res=QMessageBox.question(parent,'Maximum overlap', 'O maior overlap é '+str(round(maxarea,6))+' m2 . Continuar?' )
+        if res==QMessageBox.No: stop
+
+# Verificar se a geometria de PC é válida
+# check validity of features with method isGeosValid()
+# A: make copy
+def ckeck_and_fix_load_vlayer_validity(fn,ln):
+    vlayer=QgsVectorLayer(fn,'','ogr')
+    vlayer.selectAll()
+    mylayer=my_processing_run("native:saveselectedfeatures",vlayer,{},ln)
+    # B: Check validity
+    feats=mylayer.getFeatures()
+    not_valid_ids=[]
+    for feat in feats:
+        if not feat.geometry().isGeosValid():
+            not_valid_ids.append(feat.id())
+    # C: Select invalid features 
+    mylayer.select(not_valid_ids)
+    # D: Try to fix
+    if len(not_valid_ids)>0:
+        QMessageBox.information(parent,'Info','There are {} not valid features in {}. Try to fix'.format(len(not_valid_ids),ln))
+        # apply .makeValid()
+        new_not_valid_ids=[]
+        with edit(mylayer):
+            feats=mylayer.selectedFeatures() # just the selected ones
+            for feat in feats:
+                geom=feat.geometry().makeValid()
+                feat.setGeometry(geom)
+                mylayer.updateFeature(feat)
+                if not feat.geometry().isGeosValid():
+                    new_not_valid_ids.append(feat.id())
+        if len(new_not_valid_ids)>0:
+            QMessageBox.information(parent,'Info','There are still {} not valid features'.format(len(not_valid_ids)))
+            #stop
+    mylayer.removeSelection()
+    return mylayer
+
 # find files with regex
 # myfolder: where the files are
 # stregex: regex string
@@ -580,7 +659,9 @@ def find_files(myfolder, stregex,pick_attribute=''):
     logical=[myregex.search(f.lower()) is not None for f in myfiles]
     # no files satisfy myregex:
     if sum(logical)==0:
-        return None
+        res=QMessageBox.question(parent,'File not found', 'Continuar?' )
+        if res==QMessageBox.No: stop
+        return 'EM_FALTA'
     isqml=[re.compile(r'.*qml$').search(f.lower()) is not None for f in myfiles]
     myfn=[myfilesfull[i] for i in range(len(myfiles)) if logical[i]]
     myln=[myfiles[i] for i in range(len(myfiles)) if logical[i]]
@@ -648,17 +729,21 @@ def find_files(myfolder, stregex,pick_attribute=''):
             QMessageBox.information(parent,'atributos', ' -- '.join(atnames)+'\n *** \n' +' -- '.join(map(str,vals)))
             # pick attribute
             if pick_attribute is not '':
-                myoptions=atnames
-                atname, ok = QInputDialog.getItem(parent, 'Escolher' , pick_attribute, myoptions, 0, False)
-                idx = vlayer.fields().indexOf(atname)
-                myListValues = list(vlayer.uniqueValues(idx)) # uniqueValues returns a "set"
-                if isinstance(myListValues[0],str):
-                    myListValues.extend(['1','9999'])
-                else:
-                    myListValues.extend([1,9999])
-                val, ok = QInputDialog.getItem(parent, 'Escolher valor' , pick_attribute, map(str,myListValues), 0, False)
-                if str(val)=='9999':
-                    stop
+                myoptions=atnames+['9999']
+                atname, ok = QInputDialog.getItem(parent, 'Escolher (9999 se não existir)' , pick_attribute, myoptions, 0, False)
+                if atname=='9999':
+                    val=9999
+                    myListValues=['9999']
+                else: 
+                    idx = vlayer.fields().indexOf(atname)
+                    myListValues = list(vlayer.uniqueValues(idx)) # uniqueValues returns a "set"
+                    if isinstance(myListValues[0],str):
+                        myListValues.extend(['1','9999'])
+                    else:
+                        myListValues.extend([1,9999])
+                    val, ok = QInputDialog.getItem(parent, 'Escolher valor (stop:9999)' , pick_attribute, map(str,myListValues), 0, False)
+                    if str(val)=='9999':
+                        stop
                 if isinstance(myListValues[0],str):
                     return myfnfull,atname,'"'+atname+'"=\''+str(val)+'\''
                 else:
